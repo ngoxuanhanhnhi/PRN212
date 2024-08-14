@@ -15,7 +15,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
-namespace WpfApp1Test
+namespace MusicApp
 {
 	/// <summary>
 	/// Interaction logic for MainWindow.xaml
@@ -348,7 +348,7 @@ namespace WpfApp1Test
                 // Hiển thị lại các thành phần khác
                 MusicButton.Visibility = Visibility.Visible;
                 VideoButton.Visibility = Visibility.Visible;
-                AddNewButton.Visibility = Visibility.Visible;
+                //AddNewButton.Visibility = Visibility.Visible;
                 ListDataGrid.Visibility = Visibility.Visible;
 
                 // Reset timer
