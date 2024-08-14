@@ -5,8 +5,97 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfApp1Test"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+            Title="MainWindow" Height="450" Width="800" WindowStartupLocation="CenterScreen">
+    <Grid Background="LightGray">
+        <Image x:Name="DefaultImage" HorizontalAlignment="Left" Height="197" Margin="35,29,0,0" VerticalAlignment="Top" Width="350" Source="Assets/default-screen.jpg"/>
+        <Viewbox x:Name="ScreenViewbox" HorizontalAlignment="Left" Height="197" Margin="35,29,0,0" VerticalAlignment="Top" Width="350">
+            <MediaElement x:Name="PlaylistMediaElement" Height="311" Width="557" LoadedBehavior="Manual" MouseMove="StatusBar_MouseMove" MediaEnded="NextPlay_MediaEnded" Stretch="Uniform" />
+        </Viewbox>
+        <Button x:Name="MusicButton" Content="Music" HorizontalAlignment="Left" Height="35" Margin="440,29,0,0" VerticalAlignment="Top" Width="90" Click="MusicButton_Click"/>
+        <Button x:Name="VideoButton" Content="Video" HorizontalAlignment="Left" Height="35" Margin="535,29,0,0" VerticalAlignment="Top" Width="90" Click="VideoButton_Click"/>
+        <Button x:Name="AddNewButton" Content="Add new" HorizontalAlignment="Left" Height="30" Margin="440,236,0,0" VerticalAlignment="Top" Width="64" Click="AddNewButton_Click" Background="LightGreen" FontWeight="Bold"/>
+        <DataGrid x:Name="ListDataGrid" HorizontalAlignment="Left" Height="172" Margin="440,64,0,0" VerticalAlignment="Top" Width="280" AutoGenerateColumns="False" CanUserAddRows="False" PreviewMouseDown="DataGrid_PreviewMouseDown">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="Auto"/>
+                <DataGridTemplateColumn Header="Play" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Play" Click="Play_Button_Click"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Delete" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Delete" Click="Delete_Button_Click"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <StatusBar x:Name="ControlsStatusBar" HorizontalAlignment="Left" Height="30" Margin="35,225,0,0" VerticalAlignment="Top" Width="350" MouseMove="StatusBar_MouseMove" Background="White">
+            <StatusBar.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                    </Grid>
+                </ItemsPanelTemplate>
+            </StatusBar.ItemsPanel>
+            <StatusBarItem>
+                <Button x:Name="PlayAndPauseButton" BorderBrush="Transparent" Background="Transparent" Click="PlayAndPauseButton_Click">
+                    <Button.Content>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="Assets/Controls/play.ico"/>
+                        </StackPanel>
+                    </Button.Content>
+                </Button>
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="1" Height="30" VerticalAlignment="Top">
+            <Button x:Name="PreviousButton" BorderBrush="Transparent" Background="Transparent" Click="PreviousButton_Click">
+                <Button.Content>
+                    <StackPanel Orientation="Horizontal">
+                        <Image Source="Assets/Controls/previous.ico"/>
+                    </StackPanel>
+                </Button.Content>
+            </Button>
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="2">
+                <Button x:Name="NextButton" BorderBrush="Transparent" Background="Transparent" Click="NextButton_Click">
+                    <Button.Content>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="Assets/Controls/next.ico"/>
+                        </StackPanel>
+                    </Button.Content>
+                </Button>
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="3">
+                <TextBlock Name="lblProgressStatus">00:00:00</TextBlock>
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="4" HorizontalContentAlignment="Stretch">
+                <Slider Name="sliProgress" Thumb.DragStarted="sliProgress_DragStarted"  Thumb.DragCompleted="sliProgress_DragCompleted" ValueChanged="sliProgress_ValueChanged" />
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="5">
+                <ProgressBar Name="pbVolume" Width="50" Height="12" Maximum="1" Value="0.5" MouseDown="PbVolume_MouseDown" MouseMove="PbVolume_MouseMove"/>
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="6">
+                <Button x:Name="FullScreenButton" BorderBrush="Transparent" Background="Transparent" Click="FullScreenButton_Click">
+                    <Button.Content>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="Assets/Controls/full-screen.ico"/>
+                        </StackPanel>
+                    </Button.Content>
+                </Button>
+            </StatusBarItem>
+        </StatusBar>
 
     </Grid>
 </Window>
