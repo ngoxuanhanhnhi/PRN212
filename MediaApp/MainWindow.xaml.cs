@@ -1,4 +1,4 @@
-﻿using MusicApp.Models;
+﻿using MediaApp.Models;
 using NAudio.Wave;
 using System.IO;
 using System.Text;
@@ -15,7 +15,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
-namespace MusicApp
+namespace MediaApp
 {
 	/// <summary>
 	/// Interaction logic for MainWindow.xaml

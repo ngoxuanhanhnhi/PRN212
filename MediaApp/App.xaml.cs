@@ -2,7 +2,7 @@
 using System.Data;
 using System.Windows;
 
-namespace MusicApp
+namespace MediaApp
 {
 	/// <summary>
 	/// Interaction logic for App.xaml
