@@ -1,7 +1,13 @@
 ﻿using MusicApp.Models;
 using NAudio.Wave;
+using Newtonsoft.Json;
+using System;
+using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -14,78 +20,78 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-
 namespace WpfApp1Test
 {
-	/// <summary>
-	/// Interaction logic for MainWindow.xaml
-	/// </summary>
-	public partial class MainWindow : Window
-	{
+    /// <summary>
+    /// Interaction logic for MainWindow.xaml
+    /// </summary>
+    public partial class MainWindow : Window
+    {
         private OpenFileDialog openFileDialog; // Đối tượng OpenFileDialog để mở file
-        private List<PlayListItem> playlistItems; // Danh sách đường dẫn của các file nhạc
+        private ObservableCollection<PlayListItem> playlistItems; // Danh sách đường dẫn của các file nhạc
         private int currentIndex; // Chỉ số của bài hát hiện tại
         private DispatcherTimer _timer;
         private DispatcherTimer hideStatusBarTimer;
         private bool userIsDraggingSlider = false;
         private bool isPlay = false;
         private bool isChoose = false; // true -> music; false -> video
-        private string folderPath = "C:\\List";
+        private StreamReader folderPath;
         private bool isFullScreen = false;
+        private bool isMouseDown = false;
+        private bool isVolume = false;
+        private bool isLoop = true;
+        private bool isRepeat = false;
         private Rect originalMediaElementRect; // Lưu trữ vị trí và kích thước gốc của MediaElement
         private Rect originalViewboxRect; // Lưu trữ vị trí và kích thước gốc của Viewbox
         private Rect originalStatusBarRect; // Lưu trữ vị trí và kích thước gốc của StatusBar
+        private ObservableCollection<PlayListItem> _items;
+        private PlayListItem _draggedItem;
+        private DataGridRow _draggedRow;
+        private const int DragDistance = 10;
+        private Point _startPoint;
 
         public MainWindow()
         {
             InitializeComponent();
             currentIndex = -1;
             _timer = new DispatcherTimer();
-            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Interval = TimeSpan.FromMilliseconds(200);
             _timer.Tick += Timer_Tick;
             AddNewButton.Visibility = Visibility.Collapsed;
         }
 
         private void LoadFiles(string typeFile)
         {
-            playlistItems = new List<PlayListItem>();
-            if (Directory.Exists(folderPath))
+            playlistItems = new ObservableCollection<PlayListItem>();
+            string jsonPath = "songlist.json";
+            if (typeFile == ".mp4")
             {
-                var mp3Files = Directory.GetFiles(folderPath, typeFile);
+                jsonPath = "videolist.json";
+            }
 
-                foreach (var filePath in mp3Files)
+            // Đọc tệp JSON
+            if (File.Exists(jsonPath))
+            {
+                string jsonString = File.ReadAllText(jsonPath);
+
+                if (!string.IsNullOrEmpty(jsonString))
                 {
-                    var fileInfo = new FileInfo(filePath);
-
-                    // Lấy thông tin thời lượng file sử dụng NAudio
-                    string duration;
-                    try
+                    if (jsonString.TrimStart().StartsWith("["))
                     {
-                        using (var reader = new AudioFileReader(filePath))
-                        {
-                            duration = reader.TotalTime.ToString(@"mm\:ss");
-                        }
+                        // Nếu là mảng JSON, deserialize thành danh sách
+                        playlistItems = JsonConvert.DeserializeObject<ObservableCollection<PlayListItem>>(jsonString);
                     }
-                    catch (Exception)
+                    else
                     {
-                        duration = "Unknown";
+                        // Nếu là đối tượng JSON, deserialize thành một đối tượng và thêm vào danh sách
+                        var playlistItem = JsonConvert.DeserializeObject<PlayListItem>(jsonString);
+                        playlistItems.Add(playlistItem);
                     }
-
-                    playlistItems.Add(new PlayListItem
-                    {
-                        Name = fileInfo.Name,
-                        Duration = duration,
-                        FilePath = filePath
-                    });
                 }
-                ListDataGrid.ItemsSource = playlistItems;
             }
-            else
-            {
 
-                // Kiểm tra nếu thư mục đích không tồn tại, tạo mới thư mục
-                Directory.CreateDirectory(folderPath);
-            }
+            // Gán dữ liệu vào ListDataGrid
+            ListDataGrid.ItemsSource = playlistItems;
         }
 
         private void MusicButton_Click(object sender, RoutedEventArgs e)
@@ -94,7 +100,7 @@ namespace WpfApp1Test
             VideoButton.Background = new SolidColorBrush(Colors.LightGray);
             AddNewButton.Visibility = Visibility.Visible;
             ListDataGrid.ItemsSource = null;
-            string typeFile = "*.mp3";
+            string typeFile = ".mp3";
             LoadFiles(typeFile);
             isChoose = true;
         }
@@ -105,7 +111,7 @@ namespace WpfApp1Test
             MusicButton.Background = new SolidColorBrush(Colors.LightGray);
             AddNewButton.Visibility = Visibility.Visible;
             ListDataGrid.ItemsSource = null;
-            string typeFile = "*.mp4";
+            string typeFile = ".mp4";
             LoadFiles(typeFile);
             isChoose = false;
         }
@@ -115,37 +121,20 @@ namespace WpfApp1Test
         {
             if ((PlaylistMediaElement.Source != null) && (PlaylistMediaElement.NaturalDuration.HasTimeSpan) && (!userIsDraggingSlider))
             {
-                sliProgress.Minimum = 0;
-                sliProgress.Maximum = PlaylistMediaElement.NaturalDuration.TimeSpan.TotalSeconds;
-                sliProgress.Value = PlaylistMediaElement.Position.TotalSeconds;
+                TimeProgressBar.Minimum = 0;
+                TimeProgressBar.Maximum = PlaylistMediaElement.NaturalDuration.TimeSpan.TotalSeconds;
+                TimeProgressBar.Value = PlaylistMediaElement.Position.TotalSeconds;
             }
         }
 
-        private void Play_Button_Click(object sender, RoutedEventArgs e)
+        private async void Delete_Button_Click(object sender, RoutedEventArgs e)
         {
-            var row = ListDataGrid.SelectedItem as PlayListItem;
-            if (row != null)
-            {
-                PlayAndPauseButton.Content = new Image
-                {
-                    Source = new BitmapImage(new Uri("Assets/Controls/pause.ico", UriKind.Relative)),
-                };
-                isPlay = true;
-                currentIndex = ListDataGrid.Items.IndexOf(row);
-                CheckToEnableButton();
-                PlaylistMediaElement.Source = new Uri(row.FilePath);
-                PlaylistMediaElement.Play();
-                _timer.Start();
-
-            }
-        }
-
-        private void Delete_Button_Click(object sender, RoutedEventArgs e)
-        {
-            string typeFile = "*.mp4";
+            string typeFile = ".mp4";
+            string jsonPath = "videolist.json";
             if (isChoose)
             {
-                typeFile = "*.mp3";
+                typeFile = ".mp3";
+                jsonPath = "songlist.json";
             }
             var row = ListDataGrid.SelectedItem as PlayListItem;
             if (row != null)
@@ -154,52 +143,83 @@ namespace WpfApp1Test
                 if (comfirm == MessageBoxResult.Yes)
                 {
                     int index = ListDataGrid.Items.IndexOf(row);
-                    File.Delete(playlistItems[index].FilePath);
                     playlistItems.RemoveAt(index);
+                    string jsonString = JsonConvert.SerializeObject(playlistItems, Formatting.Indented);
+                    await File.WriteAllTextAsync(jsonPath, jsonString);
+                    PlaylistMediaElement.Stop();
+                    PlaylistMediaElement.Source = null;
                     LoadFiles(typeFile);
                     // Xóa bài hát khỏi danh sách phát nếu cần
                 }
             }
         }
 
-        private void sliProgress_DragStarted(object sender, DragStartedEventArgs e)
+        private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            userIsDraggingSlider = true;
-        }
-
-        private void sliProgress_DragCompleted(object sender, DragCompletedEventArgs e)
-        {
-            userIsDraggingSlider = false;
-            PlaylistMediaElement.Position = TimeSpan.FromSeconds(sliProgress.Value);
-        }
-
-        private void sliProgress_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            lblProgressStatus.Text = TimeSpan.FromSeconds(sliProgress.Value).ToString(@"hh\:mm\:ss");
+            PlaylistMediaElement.Volume = VolumeSlider.Value;
         }
 
         // Sự kiện khi người dùng click vào ProgressBar để thay đổi âm lượng
-        private void PbVolume_MouseDown(object sender, MouseButtonEventArgs e)
+        private void TimeProgressBar_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            UpdateVolume(e);
+            userIsDraggingSlider = true;
+            UpdateProgressBar(e);
         }
 
-        // Sự kiện khi người dùng di chuyển chuột trên ProgressBar để thay đổi âm lượng
-        private void PbVolume_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        private void TimeProgressBar_MouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed)
+            userIsDraggingSlider = false;
+            UpdateProgressBar(e);
+            PlaylistMediaElement.Volume = 50;
+            if (isPlay)
             {
-                UpdateVolume(e);
+                PlaylistMediaElement.Play();
             }
         }
 
-        // Hàm cập nhật giá trị âm lượng
-        private void UpdateVolume(System.Windows.Input.MouseEventArgs e)
+        // Sự kiện khi người dùng di chuyển chuột trên ProgressBar để thay đổi âm lượng
+        private void TimeProgressBar_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            System.Windows.Point position = e.GetPosition(pbVolume);
-            double ratio = position.X / pbVolume.ActualWidth;  // Tính toán tỷ lệ từ vị trí con trỏ chuột
-            pbVolume.Value = ratio;
-            PlaylistMediaElement.Volume = pbVolume.Value;  // Cập nhật giá trị âm lượng của MediaElement
+            TimeProgressBar.Height = 5;
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                UpdateProgressBar(e);
+                PlaylistMediaElement.Volume = 0;
+                PlaylistMediaElement.Pause();
+            }
+        }
+
+        private void TimeProgressBar_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            TimeProgressBar.Height = 2;
+            if (e.LeftButton == MouseButtonState.Released && userIsDraggingSlider)
+            {
+                PlaylistMediaElement.Volume = VolumeSlider.Value;
+                PlaylistMediaElement.Play();
+            }
+        }
+
+        private void TimeProgressBar_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            CountTimeTextBlock.Text = TimeSpan.FromSeconds(TimeProgressBar.Value).ToString(@"hh\:mm\:ss");
+        }
+
+        // Hàm cập nhật giá trị thời gian
+        private void UpdateProgressBar(System.Windows.Input.MouseEventArgs e)
+        {
+            // Tính toán vị trí con trỏ chuột trên ProgressBar
+            System.Windows.Point position = e.GetPosition(TimeProgressBar);
+            double ratio = position.X / TimeProgressBar.ActualWidth;  // Tính tỷ lệ vị trí con trỏ với chiều rộng ProgressBar
+
+            // Cập nhật giá trị ProgressBar (trong khoảng từ Minimum đến Maximum)
+            double newValue = ratio * (TimeProgressBar.Maximum - TimeProgressBar.Minimum) + TimeProgressBar.Minimum;
+            TimeProgressBar.Value = newValue;
+
+            // Cập nhật vị trí phát lại của MediaElement
+            if (PlaylistMediaElement != null)
+            {
+                PlaylistMediaElement.Position = TimeSpan.FromSeconds(newValue);
+            }
         }
 
         private void PlayAndPauseButton_Click(object sender, RoutedEventArgs e)
@@ -209,7 +229,7 @@ namespace WpfApp1Test
             if (isPlay)
             {
                 PlaylistMediaElement.Pause();
-                playImage.Source = new BitmapImage(new Uri("Assets/Controls/play.ico", UriKind.Relative));
+                playImage.Source = new BitmapImage(new Uri("Assets/Controls/play.png", UriKind.Relative));
 
                 // Gán đối tượng Image vào Button Content
                 PlayAndPauseButton.Content = playImage;
@@ -218,7 +238,7 @@ namespace WpfApp1Test
             else
             {
                 PlaylistMediaElement.Play();
-                playImage.Source = new BitmapImage(new Uri("Assets/Controls/pause.ico", UriKind.Relative));
+                playImage.Source = new BitmapImage(new Uri("Assets/Controls/pause.png", UriKind.Relative));
 
                 // Gán đối tượng Image vào Button Content
                 PlayAndPauseButton.Content = playImage;
@@ -226,15 +246,17 @@ namespace WpfApp1Test
             }
         }
 
-        // thêm mới file vào folder
-        private void AddNewButton_Click(object sender, RoutedEventArgs e)
+        private async void AddNewButton_Click(object sender, RoutedEventArgs e)
         {
             string filter = "MP4 files (*.mp4)|*.mp4";
-            string typeFile = "*.mp4";
+            string typeFile = ".mp4";
+
+            string jsonPath = "videolist.json";
             if (isChoose)
             {
                 filter = "MP3 files (*.mp3)|*.mp3";
-                typeFile = "*.mp3";
+                typeFile = ".mp3";
+                jsonPath = "songlist.json";
             }
 
             openFileDialog = new OpenFileDialog
@@ -246,28 +268,72 @@ namespace WpfApp1Test
 
             if (openFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
+                List<PlayListItem> playlistItems = new List<PlayListItem>();
+
+                try
+                {
+                    if (File.Exists(jsonPath))
+                    {
+                        string existingJson = await File.ReadAllTextAsync(jsonPath);
+                        if (!string.IsNullOrEmpty(existingJson))
+                        {
+                            playlistItems = JsonConvert.DeserializeObject<List<PlayListItem>>(existingJson);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show($"Có lỗi xảy ra khi đọc tệp JSON: {ex.Message}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
                 foreach (string filePath in openFileDialog.FileNames)
                 {
                     if (playlistItems.Find(x => x.FilePath == filePath) == null)
                     {
-                        // Tạo đường dẫn tới file đích
-                        string destinationFilePath = System.IO.Path.Combine(folderPath, System.IO.Path.GetFileName(filePath));
-
                         try
                         {
-                            // Sao chép file
-                            File.Copy(filePath, destinationFilePath, overwrite: true);
+                            using (var reader = new AudioFileReader(filePath))
+                            {
+                                var duration = reader.TotalTime.ToString(@"mm\:ss");
+                                var fileInfo = new FileInfo(filePath);
+
+                                PlayListItem song = new PlayListItem
+                                {
+                                    Name = fileInfo.Name,
+                                    Duration = duration,
+                                    FilePath = filePath
+                                };
+
+                                // Thêm bài hát vào danh sách
+                                playlistItems.Add(song);
+                            }
                         }
                         catch (Exception ex)
                         {
-                            System.Windows.MessageBox.Show($"Có lỗi xảy ra: {ex.Message}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                            System.Windows.MessageBox.Show($"Có lỗi xảy ra khi đọc file âm thanh: {ex.Message}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
                         }
                     }
                 }
+
+                try
+                {
+                    // Ghi danh sách cập nhật vào tệp JSON
+                    string jsonString = JsonConvert.SerializeObject(playlistItems, Formatting.Indented);
+                    await File.WriteAllTextAsync(jsonPath, jsonString);
+
+                    System.Windows.MessageBox.Show("Tất cả các file đã được sao chép thành công!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show($"Có lỗi xảy ra khi ghi tệp JSON: {ex.Message}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+
+                // Tải lại các file
                 LoadFiles(typeFile);
-                System.Windows.MessageBox.Show("Tất cả các file đã được sao chép thành công!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
+
 
         // Phóng to màn hình
         private void FullScreenButton_Click(object sender, RoutedEventArgs e)
@@ -385,14 +451,21 @@ namespace WpfApp1Test
 
         private void NextPlay_MediaEnded(object sender, RoutedEventArgs e)
         {
-            if (playlistItems.Count() > currentIndex + 1)
+            if (playlistItems.Count() >= currentIndex + 1)
             {
                 PlayAndPauseButton.Content = new Image
                 {
-                    Source = new BitmapImage(new Uri("Assets/Controls/pause.ico", UriKind.Relative)),
+                    Source = new BitmapImage(new Uri("Assets/Controls/pause.png", UriKind.Relative)),
                 };
                 isPlay = true;
-                currentIndex++;
+                if (!isRepeat)
+                {
+                    currentIndex++;
+                }
+                if (isLoop && playlistItems.Count() == currentIndex)
+                {
+                    currentIndex = 0;
+                }
                 CheckToEnableButton();
                 PlayListItem nextItem = ListDataGrid.Items.GetItemAt(currentIndex) as PlayListItem;
                 ListDataGrid.SelectedItem = nextItem;
@@ -407,28 +480,6 @@ namespace WpfApp1Test
             }
         }
 
-        // Ngăn selected item trong data grid trừ button
-        private void DataGrid_PreviewMouseDown(object sender, MouseButtonEventArgs e)
-        {
-            // Kiểm tra xem phần tử nào đã được nhấn
-            DependencyObject originalSource = e.OriginalSource as DependencyObject;
-
-            // Duyệt ngược lên các phần tử cha để kiểm tra xem có phải là Button không
-            while (originalSource != null && !(originalSource is DataGridRow))
-            {
-                if (originalSource is System.Windows.Controls.Button)
-                {
-                    // Nếu nhấn vào Button, không hủy sự kiện
-                    return;
-                }
-                originalSource = VisualTreeHelper.GetParent(originalSource);
-            }
-
-            // Hủy sự kiện để ngăn không cho chọn hàng
-            e.Handled = true;
-        }
-
-
         // Phát bài trước đó
         private void PreviousButton_Click(object sender, RoutedEventArgs e)
         {
@@ -436,7 +487,7 @@ namespace WpfApp1Test
             {
                 PlayAndPauseButton.Content = new Image
                 {
-                    Source = new BitmapImage(new Uri("Assets/Controls/pause.ico", UriKind.Relative)),
+                    Source = new BitmapImage(new Uri("Assets/Controls/pause.png", UriKind.Relative)),
                 };
                 isPlay = true;
                 currentIndex--;
@@ -453,11 +504,15 @@ namespace WpfApp1Test
         // Phát bài tiếp theo
         private void NextButton_Click(object sender, RoutedEventArgs e)
         {
+            if (ListDataGrid.SelectedItem == null)
+            {
+                return;
+            }
             if (playlistItems.Count() > currentIndex + 1)
             {
                 PlayAndPauseButton.Content = new Image
                 {
-                    Source = new BitmapImage(new Uri("Assets/Controls/pause.ico", UriKind.Relative)),
+                    Source = new BitmapImage(new Uri("Assets/Controls/pause.png", UriKind.Relative)),
                 };
                 isPlay = true;
                 currentIndex++;
@@ -477,7 +532,8 @@ namespace WpfApp1Test
             if (currentIndex == playlistItems.Count() - 1)
             {
                 NextButton.IsEnabled = false;
-            } else
+            }
+            else
             {
                 NextButton.IsEnabled = true;
             }
@@ -485,9 +541,189 @@ namespace WpfApp1Test
             if (currentIndex == 0)
             {
                 PreviousButton.IsEnabled = false;
-            } else
+            }
+            else
             {
                 PreviousButton.IsEnabled = true;
+            }
+        }
+
+        private DataGridRow GetDataGridRow(System.Windows.Input.MouseEventArgs e)
+        {
+            var point = e.GetPosition(ListDataGrid);
+            var hit = ListDataGrid.InputHitTest(point) as DependencyObject;
+            while (hit != null && !(hit is DataGridRow))
+            {
+                hit = VisualTreeHelper.GetParent(hit);
+            }
+            return hit as DataGridRow;
+        }
+
+        private DataGridRow GetDataGridRow(System.Windows.DragEventArgs e)
+        {
+            var point = e.GetPosition(ListDataGrid);
+            var hit = ListDataGrid.InputHitTest(point) as DependencyObject;
+            while (hit != null && !(hit is DataGridRow))
+            {
+                hit = VisualTreeHelper.GetParent(hit);
+            }
+            return hit as DataGridRow;
+        }
+
+        private void ListDataGrid_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_draggedItem != null && e.LeftButton == MouseButtonState.Pressed)
+            {
+                // Set drag effect
+                DragDrop.DoDragDrop((UIElement)sender, _draggedItem, System.Windows.DragDropEffects.Move);
+            }
+        }
+
+        private void ListDataGrid_DragOver(object sender, System.Windows.DragEventArgs e)
+        {
+            e.Effects = System.Windows.DragDropEffects.Move;
+            e.Handled = true;
+        }
+
+        private void ListDataGrid_Drop(object sender, System.Windows.DragEventArgs e)
+        {
+            string jsonPath = "songlist.json";
+            if (!isChoose)
+            {
+                jsonPath = "videolist.json";
+            }
+            if (e.Data.GetDataPresent(typeof(PlayListItem)))
+            {
+                var droppedItem = (PlayListItem)e.Data.GetData(typeof(PlayListItem));
+                var targetRow = GetDataGridRow(e);
+
+                if (targetRow != null)
+                {
+                    var targetItem = targetRow.DataContext as PlayListItem;
+                    if (targetItem != null)
+                    {
+                        int oldIndex = playlistItems.IndexOf(droppedItem);
+                        int newIndex = playlistItems.IndexOf(targetItem);
+
+                        if (oldIndex != newIndex)
+                        {
+                            playlistItems.Move(oldIndex, newIndex);
+                            ListDataGrid.ItemsSource = playlistItems;
+                            string jsonString = JsonConvert.SerializeObject(playlistItems, Formatting.Indented);
+                            File.WriteAllTextAsync(jsonPath, jsonString);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void ListDataGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var row = GetDataGridRow(e);
+            if (row != null)
+            {
+                _draggedItem = row.DataContext as PlayListItem;
+                _draggedRow = row;
+
+                if (_draggedItem != null)
+                {
+                    _startPoint = e.GetPosition(null); // Lưu vị trí điểm bắt đầu
+                }
+            }
+        }
+
+        private void ListDataGrid_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_draggedItem == null) return;
+
+            var pos = e.GetPosition(null);
+            var diff = _startPoint - pos;
+            if (e.LeftButton == MouseButtonState.Pressed && (Math.Abs(diff.X) > DragDistance || Math.Abs(diff.Y) > DragDistance))
+            {
+                DragDrop.DoDragDrop(_draggedRow, _draggedItem, System.Windows.DragDropEffects.Move);
+                _draggedItem = null; // Reset draggedItem after drag operation
+            }
+        }
+
+        private void SoundButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (isVolume == false)
+            {
+                VolumeSlider.Visibility = Visibility.Visible;
+                isVolume = true;
+            }
+            else
+            {
+                VolumeSlider.Visibility = Visibility.Collapsed;
+                isVolume = false;
+            }
+
+        }
+
+        private void ListDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Đặt lại màu nền cho tất cả các hàng trước
+            foreach (var item in ListDataGrid.Items)
+            {
+                var row = (DataGridRow)ListDataGrid.ItemContainerGenerator.ContainerFromItem(item);
+                if (row != null)
+                {
+                    row.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3C3D37"));
+                }
+            }
+
+            // Thay đổi màu nền cho hàng được chọn
+            if (ListDataGrid.SelectedItem != null)
+            {
+                var selectedRow = (DataGridRow)ListDataGrid.ItemContainerGenerator.ContainerFromItem(ListDataGrid.SelectedItem);
+                if (selectedRow != null)
+                {
+                    selectedRow.Background = Brushes.Gray; // Màu nền khi được chọn
+                }
+            }
+        }
+
+        private void ListDataGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            var row = ListDataGrid.SelectedItem as PlayListItem;
+            if (row != null)
+            {
+                PlayAndPauseButton.Content = new Image
+                {
+                    Source = new BitmapImage(new Uri("Assets/Controls/pause.png", UriKind.Relative)),
+                };
+                isPlay = true;
+                currentIndex = ListDataGrid.Items.IndexOf(row);
+                CheckToEnableButton();
+                var duration = TimeSpan.ParseExact(row.Duration, @"mm\:ss", CultureInfo.InvariantCulture);
+                DurationTextBlock.Text = duration.ToString(@"hh\:mm\:ss");
+                TitleTextBlock.Text = row.Name.Split('.')[0];
+                PlaylistMediaElement.Source = new Uri(row.FilePath);
+                PlaylistMediaElement.Play();
+                _timer.Start();
+
+            }
+        }
+
+        private void TypeLoopButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (isLoop)
+            {
+                TypeLoopButton.Content = new Image
+                {
+                    Source = new BitmapImage(new Uri("Assets/Controls/repeat.png", UriKind.Relative)),
+                };
+                isLoop = false;
+                isRepeat = true;
+            }
+            else
+            {
+                TypeLoopButton.Content = new Image
+                {
+                    Source = new BitmapImage(new Uri("Assets/Controls/loop.png", UriKind.Relative)),
+                };
+                isLoop = true;
+                isRepeat = false;
             }
         }
     }

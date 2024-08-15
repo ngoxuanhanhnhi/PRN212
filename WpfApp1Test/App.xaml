@@ -4,6 +4,19 @@
              xmlns:local="clr-namespace:WpfApp1Test"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <Style TargetType="DataGridCell">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Margin" Value="5, 0, 5, 0"/>
+            <Style.Triggers>
+                <!-- Xóa hiệu ứng bôi xanh khi ô được chọn -->
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="FontWeight" Value="ExtraBold" />
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Application.Resources>
 </Application>

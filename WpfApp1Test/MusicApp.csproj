@@ -10,40 +10,66 @@
 
   <ItemGroup>
     <None Remove="Assets\Controls\full-screen.ico" />
+    <None Remove="Assets\Controls\loop.png" />
     <None Remove="Assets\Controls\minimize-screen.ico" />
-    <None Remove="Assets\Controls\next.ico" />
-    <None Remove="Assets\Controls\pause.ico" />
-    <None Remove="Assets\Controls\play.ico" />
-    <None Remove="Assets\Controls\previous.ico" />
+    <None Remove="Assets\Controls\next.png" />
+    <None Remove="Assets\Controls\pause.png" />
+    <None Remove="Assets\Controls\play.png" />
+    <None Remove="Assets\Controls\previous.png" />
+    <None Remove="Assets\Controls\repeat.png" />
+    <None Remove="Assets\Controls\shuffle.png" />
+    <None Remove="Assets\Controls\sound.png" />
     <None Remove="Assets\default-screen.jpg" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Assets\Controls\full-screen.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+    <Resource Include="Assets\Controls\loop.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Assets\Controls\minimize-screen.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Assets\Controls\next.ico">
+    <Resource Include="Assets\Controls\next.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Assets\Controls\pause.ico">
+    <Resource Include="Assets\Controls\pause.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Assets\Controls\play.ico">
+    <Resource Include="Assets\Controls\play.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
-    <Resource Include="Assets\Controls\previous.ico">
+    <Resource Include="Assets\Controls\previous.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Controls\repeat.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Controls\shuffle.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Assets\Controls\sound.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Assets\default-screen.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="songlist.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="videolist.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
